@@ -4,7 +4,7 @@ import { Place } from '../place.model';
 import { PlacesComponent } from '../places.component';
 import { PlacesContainerComponent } from '../places-container/places-container.component';
 import { HttpClient } from '@angular/common/http';
-import { map } from 'rxjs';
+import { catchError, map, throwError } from 'rxjs';
 
 @Component({
   selector: 'app-available-places',
@@ -16,6 +16,7 @@ import { map } from 'rxjs';
 export class AvailablePlacesComponent implements OnInit {
   places = signal<Place[] | undefined>(undefined);
   isFetching = signal(false);
+  error = signal('');
 
   private httpClient = inject(HttpClient);
   private destroyRef = inject(DestroyRef);
@@ -27,8 +28,9 @@ export class AvailablePlacesComponent implements OnInit {
     const subscription = this.httpClient.get<{ places: Place[] }>('http://localhost:3000/places', {
       observe: 'response' // extra configuration, optional, telling angular this will be a response type
     })
-    .pipe( // extra configuration, optional, just taking out body data without headers etc.
-      map((response) => response.body?.places)
+    .pipe( // extra configuration, optional, just taking out body data without headers etc., also with catchError observable, optional
+      map((response) => response.body?.places), 
+      catchError((error) => throwError(() => new Error('Something went wrong while fetching the data. Please try again later.')))
     )
     .subscribe({
       next: (places) => {
@@ -37,6 +39,10 @@ export class AvailablePlacesComponent implements OnInit {
       },
       complete: () => {
         this.isFetching.set(false);
+      },
+      error: (error) => {
+        console.log(error);
+        this.error.set(error.message);
       }
     });
 
